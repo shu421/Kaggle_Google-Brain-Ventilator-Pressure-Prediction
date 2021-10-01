@@ -54,3 +54,8 @@ etc.
 ## 20210930
 - join
 - LSTM実装できるようにしたい
+
+## 20211001
+### GB_nb000
+- [Deep Learning Starter : Simple LSTM](https://www.kaggle.com/theoviel/deep-learning-starter-simple-lstm)写経
+- breath_idごとにinput, outputを設定

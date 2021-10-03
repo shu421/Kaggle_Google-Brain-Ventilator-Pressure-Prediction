@@ -59,3 +59,9 @@ etc.
 ### GB_nb000
 - [Deep Learning Starter : Simple LSTM](https://www.kaggle.com/theoviel/deep-learning-starter-simple-lstm)写経
 - breath_idごとにinput, outputを設定
+
+## 20211002, 1003
+- 昨日の続き
+- 写経終了
+- コードは30%くらい理解
+- LSTMの理論勉強しなきゃ

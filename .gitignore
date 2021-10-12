@@ -132,3 +132,5 @@ input/
 output/
 venv_google-brain
 .DS_Store
+
+.vscode/

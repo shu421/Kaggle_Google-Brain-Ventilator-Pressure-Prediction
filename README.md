@@ -87,9 +87,357 @@ etc.
 - 0.75152, 0.74191, 0.72600, 0.69858, 0.66520
 - 0.716642
 
-- lag5追加
+- lag5追加(debug)
 - 0.69271, 0.68639, 0.70154, 0.68344, 0.70840
 - 0.694496
 
 - lag6追加
 - 0.72801, 0.70793, 0.74417
+
+## 20211014
+### 公開code;: gb-nb003
+- baseline
+- 5fold
+- debug=True
+- seed=71
+- fold: 0.70642, 0.70791, 0.71608, 0.67396, 0.72496
+- cv: 0.705866
+
+
+### gb-nb004
+- 5fold
+- debug=True
+- seed=71
+- add: last_value_u_in
+- fold: 0.73872, 0.68623, 0.68638, 0.66329, 0.63300
+- cv: 0.681524
+
+
+### gb-ng002
+- 5fold
+- debug=False
+- add: lag5
+
+### gb-nb004
+- 5fold
+- debug=True
+- seed=71
+- add: lag5, last_value_u_in
+- fold: 0.71884, 0.70275, 0.69137, 0.75560, 0.64964
+- cv: 0.70364
+
+### gb-nb004
+- 5fold
+- debug=False
+- seed=71
+- add: last_value_u_in
+- fold: 
+- cv:
+- lb: 
+
+## 20211019
+- メモサボってた
+### gb-nb008
+- gb-nb007をclassifierにする 
+
+## 20211020
+### gb-nb008
+-[GB - VPP - Whoppity dub dub](https://www.kaggle.com/dlaststark/gb-vpp-whoppity-dub-dub)の特徴量からoutに関するものを引いた
+- 
+```
+def add_features(df):
+    df['cross']= df['u_in']*df['u_out']
+    df['cross2']= df['time_step']*df['u_out']
+    df['area'] = df['time_step'] * df['u_in']
+    df['area'] = df.groupby('breath_id')['area'].cumsum()
+    df['time_step_cumsum'] = df.groupby(['breath_id'])['time_step'].cumsum()
+    df['u_in_cumsum'] = (df['u_in']).groupby(df['breath_id']).cumsum()
+
+
+    df['u_in_lag1'] = df.groupby('breath_id')['u_in'].shift(1)
+    df['u_in_lag_back1'] = df.groupby('breath_id')['u_in'].shift(-1)
+    df['u_in_lag2'] = df.groupby('breath_id')['u_in'].shift(2)
+    df['u_in_lag_back2'] = df.groupby('breath_id')['u_in'].shift(-2)
+    df['u_in_lag3'] = df.groupby('breath_id')['u_in'].shift(3)
+    df['u_in_lag_back3'] = df.groupby('breath_id')['u_in'].shift(-3)
+    df['u_in_lag4'] = df.groupby('breath_id')['u_in'].shift(4)
+    df['u_in_lag_back4'] = df.groupby('breath_id')['u_in'].shift(-4)
+
+    df = df.fillna(0)
+    
+    df['breath_id__u_in__max'] = df.groupby(['breath_id'])['u_in'].transform('max')
+    df['breath_id__u_out__max'] = df.groupby(['breath_id'])['u_out'].transform('max')
+    df['breath_id__u_in__diffmax'] = df.groupby(['breath_id'])['u_in'].transform('max') - df['u_in']
+    df['breath_id__u_in__diffmean'] = df.groupby(['breath_id'])['u_in'].transform('mean') - df['u_in']
+
+    df['u_in_diff1'] = df['u_in'] - df['u_in_lag1']
+    df['u_in_diff2'] = df['u_in'] - df['u_in_lag2']
+    df['u_in_diff3'] = df['u_in'] - df['u_in_lag3']
+    df['u_in_diff4'] = df['u_in'] - df['u_in_lag4']
+    
+    df['one'] = 1
+    df['count'] = (df['one']).groupby(df['breath_id']).cumsum()
+    df['u_in_cummean'] = df['u_in_cumsum'] / df['count']
+    
+    df['breath_id_lag'] = df['breath_id'].shift(1).fillna(0)
+    df['breath_id_lag2'] = df['breath_id'].shift(2).fillna(0)
+    df['breath_id_lagsame'] = np.select([df['breath_id_lag']==df['breath_id']],[1],0)
+    df['breath_id_lag2same'] = np.select([df['breath_id_lag2']==df['breath_id']], [1], 0)
+    df['breath_id__u_in_lag'] = df['u_in'].shift(1).fillna(0)
+    df['breath_id__u_in_lag'] = df['breath_id__u_in_lag'] * df['breath_id_lagsame']
+    df['breath_id__u_in_lag2'] = df['u_in'].shift(2).fillna(0)
+    df['breath_id__u_in_lag2'] = df['breath_id__u_in_lag2'] * df['breath_id_lag2same']
+
+
+    df['time_step_diff'] = df.groupby('breath_id')['time_step'].diff().fillna(0)
+    df['ewm_u_in_mean'] = (df\
+                           .groupby('breath_id')[['u_in']]\
+                           .ewm(halflife=9)\
+                           .mean()\
+                           .reset_index(level=0,drop=True))
+    df[['15_in_sum', '15_in_min', '15_in_max', '15_in_mean']] = (df\
+                                                                 .groupby('breath_id')['u_in']\
+                                                                 .rolling(window=15, min_periods=1)\
+                                                                 .agg({'15_in_sum':'sum',
+                                                                       '15_in_min':'min',
+                                                                       '15_in_max':'max',
+                                                                       '15_in_mean':'mean'})\
+                                                                 .reset_index(level=0, drop=True))
+    
+
+    df['u_in_lagback_diff1'] = df['u_in'] - df['u_in_lag_back1']
+    df['u_in_lagback_diff2'] = df['u_in'] - df['u_in_lag_back2']
+    
+
+    df['R'] = df['R'].astype(str)
+    df['C'] = df['C'].astype(str)
+    df['R__C'] = df["R"].astype(str) + '__' + df["C"].astype(str)
+    df = pd.get_dummies(df)
+
+    return df
+
+train = add_features(train_df)
+test = add_features(test_df)
+del train_df, test_df
+gc.collect()
+```
+
+### gb-nb008
+- よくある特徴量使ってる
+- 
+
+### gb-nb011
+- cv: 0.165083407259815, 0.15780835227398698, 0.16185144929734957, 0.1552711538175763, 0.15557388985375448, 0.15929822242330105, 0.15952012520386283, 0.1571477531343505, 0.15855710421709027
+- 0.1589
+
+
+### gb-nb015
+- make fft features
+    - abs(log(features))
+    - features = fft, fft_w, fft_cos, fft_cos_w
+
+### datasets/train(test)_fft.pkl
+- abs(log(features))
+- features = fft, fft_w, fft_cos, fft_cos_w
+
+### datasets/train(test)_fft_clip.pkl
+- abs(log(features))
+- features = fft, fft_w, fft_cos, fft_cos_w
+- clipped
+    - df['fft'] = df['fft'].clip(0,10)
+    - df['fft_w'] = df['fft_w'].clip(0,15)
+    - df['fft_cos'] = df['fft_cos'].clip(0,20)
+    - df['fft_cos_w'] = df['fft_cos_w'].clip(0,25)
+
+
+## 20211027
+### gb-nb016
+- 0.1593, 0.1615, 0.1581, 0.1624, 0.1569, 0.1562, 0.1581, 0.1588, 0.1579, 0.1578
+- cv: 0.1587
+
+## 20211028
+### datasets/train[test]_fft_physics.pkl
+```
+def add_features(df):
+    df['cross']= df['u_in']*df['u_out']
+    df['cross2']= df['time_step']*df['u_out']
+    df['area'] = df['time_step'] * df['u_in']
+    df['area'] = df.groupby('breath_id')['area'].cumsum()
+    df['time_step_cumsum'] = df.groupby(['breath_id'])['time_step'].cumsum()
+    df['u_in_cumsum'] = (df['u_in']).groupby(df['breath_id']).cumsum()
+
+
+    df['u_in_lag1'] = df.groupby('breath_id')['u_in'].shift(1)
+    df['u_in_lag_back1'] = df.groupby('breath_id')['u_in'].shift(-1)
+    df['u_in_lag2'] = df.groupby('breath_id')['u_in'].shift(2)
+    df['u_in_lag_back2'] = df.groupby('breath_id')['u_in'].shift(-2)
+    df['u_in_lag3'] = df.groupby('breath_id')['u_in'].shift(3)
+    df['u_in_lag_back3'] = df.groupby('breath_id')['u_in'].shift(-3)
+    df['u_in_lag4'] = df.groupby('breath_id')['u_in'].shift(4)
+    df['u_in_lag_back4'] = df.groupby('breath_id')['u_in'].shift(-4)
+
+    df = df.fillna(0)
+    
+    df['breath_id__u_in__max'] = df.groupby(['breath_id'])['u_in'].transform('max')
+    df['breath_id__u_out__max'] = df.groupby(['breath_id'])['u_out'].transform('max')
+    df['breath_id__u_in__diffmax'] = df.groupby(['breath_id'])['u_in'].transform('max') - df['u_in']
+    df['breath_id__u_in__diffmean'] = df.groupby(['breath_id'])['u_in'].transform('mean') - df['u_in']
+
+    df['u_in_diff1'] = df['u_in'] - df['u_in_lag1']
+    df['u_in_diff2'] = df['u_in'] - df['u_in_lag2']
+    df['u_in_diff3'] = df['u_in'] - df['u_in_lag3']
+    df['u_in_diff4'] = df['u_in'] - df['u_in_lag4']
+    
+    df['one'] = 1
+    df['count'] = (df['one']).groupby(df['breath_id']).cumsum()
+    df['u_in_cummean'] = df['u_in_cumsum'] / df['count']
+    
+    df['breath_id_lag'] = df['breath_id'].shift(1).fillna(0)
+    df['breath_id_lag2'] = df['breath_id'].shift(2).fillna(0)
+    df['breath_id_lagsame'] = np.select([df['breath_id_lag']==df['breath_id']],[1],0)
+    df['breath_id_lag2same'] = np.select([df['breath_id_lag2']==df['breath_id']], [1], 0)
+    df['breath_id__u_in_lag'] = df['u_in'].shift(1).fillna(0)
+    df['breath_id__u_in_lag'] = df['breath_id__u_in_lag'] * df['breath_id_lagsame']
+    df['breath_id__u_in_lag2'] = df['u_in'].shift(2).fillna(0)
+    df['breath_id__u_in_lag2'] = df['breath_id__u_in_lag2'] * df['breath_id_lag2same']
+
+
+    df['time_step_diff'] = df.groupby('breath_id')['time_step'].diff().fillna(0)
+    df['ewm_u_in_mean'] = (df\
+                           .groupby('breath_id')[['u_in']]\
+                           .ewm(halflife=9)\
+                           .mean()\
+                           .reset_index(level=0,drop=True))
+    df[['15_in_sum', '15_in_min', '15_in_max', '15_in_mean']] = (df\
+                                                                 .groupby('breath_id')['u_in']\
+                                                                 .rolling(window=15, min_periods=1)\
+                                                                 .agg({'15_in_sum':'sum',
+                                                                       '15_in_min':'min',
+                                                                       '15_in_max':'max',
+                                                                       '15_in_mean':'mean'})\
+                                                                 .reset_index(level=0, drop=True))
+    
+
+    df['u_in_lagback_diff1'] = df['u_in'] - df['u_in_lag_back1']
+    df['u_in_lagback_diff2'] = df['u_in'] - df['u_in_lag_back2']
+    
+
+    df['R'] = df['R'].astype(str)
+    df['C'] = df['C'].astype(str)
+    df['R__C'] = df["R"].astype(str) + '__' + df["C"].astype(str)
+    df = pd.get_dummies(df)
+
+    df['exponent']=(- df['time_step'])/(df['R']*df['C'])
+    df['factor']=np.exp(df['exponent'])
+    df['vf']=(df['u_in_cumsum']*df['R'])/df['factor']
+    df['vt']=0
+    df.loc[df['time_step'] != 0, 'vt']=df['area']/(df['C']*(1 - df['factor']))
+    df['v']=df['vf']+df['vt']
+
+    return df
+Index(['time_step', 'u_in', 'u_out', 'pressure', 'cross', 'cross2', 'area',
+       'time_step_cumsum', 'u_in_cumsum', 'u_in_lag1', 'u_in_lag_back1',
+       'u_in_lag2', 'u_in_lag_back2', 'u_in_lag3', 'u_in_lag_back3',
+       'u_in_lag4', 'u_in_lag_back4', 'breath_id__u_in__max',
+       'breath_id__u_out__max', 'breath_id__u_in__diffmax',
+       'breath_id__u_in__diffmean', 'u_in_diff1', 'u_in_diff2', 'u_in_diff3',
+       'u_in_diff4', 'u_in_cummean', 'breath_id__u_in_lag',
+       'breath_id__u_in_lag2', 'time_step_diff', 'ewm_u_in_mean', '15_in_sum',
+       '15_in_min', '15_in_max', '15_in_mean', 'u_in_lagback_diff1',
+       'u_in_lagback_diff2', 'R_20', 'R_5', 'R_50', 'C_10', 'C_20', 'C_50',
+       'R__C_20__10', 'R__C_20__20', 'R__C_20__50', 'R__C_50__10',
+       'R__C_50__20', 'R__C_50__50', 'R__C_5__10', 'R__C_5__20', 'R__C_5__50',
+       'fft', 'fft_w', 'fft_cos', 'fft_cos_w', 'exponent', 'factor', 'vf',
+       'vt', 'v'],
+      dtype='object')
+```
+
+### nb021
+- アンサンブル用
+
+### gb-nb019
+```
+col = ['u_in_diff1', 
+       'u_in_diff2', 
+       'u_in', 
+       'u_in_lag1', 
+       'u_in_lag_back1',
+       'u_in_lag_back2',
+       'u_in_cumsum',
+       ]
+deviation, zscore, median
+
+特徴量75個
+```
+- メモリエラーと特徴量の数
+    - 75セーフ
+    - 87アウト
+    - 82アウト
+
+### gb-nb021
+```
+col = ['u_in_diff1', 
+       'u_in_diff2', 
+       'u_in_diff3', 
+       'u_in', 
+       'u_in_lag1', 
+       'u_in_cumsum',
+       ]
+deviation, zscore, std
+```
+- 15fold
+
+### gb-nb020
+- gb-nb016のモデルの活性化関数を selu→gelu にした
+- 0.1581, fold2がうまく行かなかった
+
+### gb-nb022
+- 横にGRUから横にLSTM layer2層増やした
+
+### gb-nb023
+- GRUを全てLSTMに変更
+- Multiply → Average(うまく行かない気がする)(うまく行ったわ)
+- 0.1585, 0.1609, 0.1593, 0.1595, 0.1555, 0.1545, 0.1570, 0.1608, 0.1567, 0.1598
+- 0.15825
+- batch_size = 512
+- seed = 71
+- fold = 10
+
+### gb-nb024
+- Average + GRU
+- 0.1597, 0.1652, 0.1601, 0.1577
+
+### gb-nb028[旧]
+- from nb023
+- batch_size = 128
+- seed = 771
+- fold = 10
+- 0.1621
+
+
+
+### gb-nb026[WIP]
+- from nb023
+- batch_size: 256
+- seed = 72
+- fold = 15
+- 0.1544, 0.1595, 0.1590, 0.1573, 0.1561, 0.1538
+
+### gb-nb028[WIP]
+- batch_size = 512
+- seed = 771
+- fold = 15
+- 0.1597, 0.1572, 0.1563, 0.1599
+
+### gb-nb032[WIP]
+- from nb023
+- batch_size = 256
+- seed = 7
+- fold = 10
+- 0.1581, 0.1600, 0.1590, 0.1567, 0.1581, 0.1582
+
+### gb-kaggle-nb016
+- batch_size = 512
+- seed = 700
+- fold = 15
+- 

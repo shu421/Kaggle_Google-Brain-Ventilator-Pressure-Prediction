@@ -1,0 +1,26 @@
+fold  : 1
+valid_dataset : 
+	len = 15090
+
+
+pressure  : (15090, 80)
+u_out  : (15090, 80)
+submit_dir  : /root/share1/kaggle/2021/ventilator/result/run02/learnable-01/fold1/valid/submit_local_00100000.model
+	initial_checkpoint  = /root/share1/kaggle/2021/ventilator/result/run02/learnable-01/fold1/checkpoint/00100000.model.pth
+	fold = 1
+	**ALL**
+		mae  = 0.175504
+
+fold  : 1
+valid_dataset : 
+	len = 4024000
+
+
+fold  : 1
+valid_dataset : 
+	len = 50300
+
+
+pressure  : (50300, 80)
+u_out  : (50300, 80)
+submit_dir  : /root/share1/kaggle/2021/ventilator/result/run02/learnable-01/fold1/valid/submit_remote_00100000.model

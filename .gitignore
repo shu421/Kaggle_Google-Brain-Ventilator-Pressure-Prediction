@@ -134,3 +134,5 @@ venv_google-brain
 .DS_Store
 
 .vscode/
+
+venv_gb/
